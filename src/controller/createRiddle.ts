@@ -165,7 +165,10 @@ export async function answerRiddle(
   try {
     // await measureTimeUntilCondition(() => shouldStopTimer);
 
-    const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
+    const connection = new Connection(
+      clusterApiUrl('mainnet-beta'),
+      'confirmed'
+    );
     const { id, post } = req.query;
     const { account } = req.body;
 
