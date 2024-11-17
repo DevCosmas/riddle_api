@@ -24,6 +24,8 @@ import measureTimeUntilCondition, { totalElapsedTime } from '../lib/timer';
 import isChallengeElapsed from '../lib/calc_duration';
 import userModel from '../model/user';
 
+const userStartTimes = new Map<string, number>();
+
 export async function getAction(
   req: Request,
   res: Response,
@@ -42,7 +44,6 @@ export async function getAction(
       return next(new AppError('Riddle not found', 404));
     }
     const isGameDue = isChallengeElapsed(riddle);
-    console.log(isGameDue);
 
     const iconURL = new URL(
       `/icons/${riddle.icon}`,
@@ -162,18 +163,18 @@ export async function answerRiddle(
   next: NextFunction
 ) {
   try {
-    let shouldStopTimer = false;
     // await measureTimeUntilCondition(() => shouldStopTimer);
 
     const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
     const { id, post } = req.query;
-    const body = req.body;
+    const { account } = req.body;
 
-    // await measureTimeUntilCondition(() => shouldStopTimer);
+    if (!userStartTimes.has(account)) {
+      // If the wallet address is not in the map, set the start time
+      userStartTimes.set(account, Date.now());
+    }
 
     const riddle = await riddleModel.findById(id);
-
-    console.log(riddle);
 
     const isGameDue = isChallengeElapsed(riddle as IRiddle);
     if (!riddle) {
@@ -188,25 +189,26 @@ export async function answerRiddle(
     }
 
     if (riddle.answer === post) {
+      const startTime = userStartTimes.get(account) ?? Date.now();
+      const endTime = Date.now();
+      const timeSpent = (endTime - startTime) / 1000;
       const answerObj: IAnswers = {
-        walletAddress: body.account,
-        timeCount: totalElapsedTime,
+        walletAddress: account,
+        timeCount: timeSpent,
         isCorrect: true,
         answer: post,
       };
-      shouldStopTimer = true;
-      await measureTimeUntilCondition(() => shouldStopTimer);
 
       // Prepare unsigned transaction
       const transaction = new Transaction().add(
         SystemProgram.transfer({
-          fromPubkey: new PublicKey(body.account),
+          fromPubkey: new PublicKey(account),
           toPubkey: new PublicKey(process.env.WALLET_ADDRESS as string),
           lamports: 0.1 * LAMPORTS_PER_SOL,
         })
       );
 
-      transaction.feePayer = new PublicKey(body.account);
+      transaction.feePayer = new PublicKey(account);
       transaction.recentBlockhash = (
         await connection.getLatestBlockhash()
       ).blockhash;
@@ -221,10 +223,7 @@ export async function answerRiddle(
       riddle.answers.push(answerObj);
       await riddle.save();
 
-      // const balance = await connection.getBalance(
-      //   new PublicKey(process.env.WALLET_ADDRESS as string)
-      // );
-      // console.log(balance, 'WALLET BAL');
+      userStartTimes.delete(account);
 
       // Set CORS headers for the response
       Object.entries(ACTIONS_CORS_HEADERS).forEach(([key, value]) => {

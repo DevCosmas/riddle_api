@@ -1,27 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -45,9 +22,9 @@ const riddle_1 = __importDefault(require("../model/riddle"));
 const app_error_1 = __importDefault(require("../global/app.error"));
 const actions_1 = require("@solana/actions");
 const web3_js_1 = require("@solana/web3.js");
-const timer_1 = __importStar(require("../lib/timer"));
 const calc_duration_1 = __importDefault(require("../lib/calc_duration"));
 const user_1 = __importDefault(require("../model/user"));
+const userStartTimes = new Map();
 function getAction(req, res, next) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -61,7 +38,6 @@ function getAction(req, res, next) {
                 return next(new app_error_1.default('Riddle not found', 404));
             }
             const isGameDue = (0, calc_duration_1.default)(riddle);
-            console.log(isGameDue);
             const iconURL = new URL(`/icons/${riddle.icon}`, `${req.protocol}://${req.get('host')}`).toString();
             const payload = {
                 icon: iconURL,
@@ -160,15 +136,17 @@ function createRiddle(req, res, next) {
 }
 function answerRiddle(req, res, next) {
     return __awaiter(this, void 0, void 0, function* () {
+        var _a;
         try {
-            let shouldStopTimer = false;
             // await measureTimeUntilCondition(() => shouldStopTimer);
             const connection = new web3_js_1.Connection((0, web3_js_1.clusterApiUrl)('devnet'), 'confirmed');
             const { id, post } = req.query;
-            const body = req.body;
-            // await measureTimeUntilCondition(() => shouldStopTimer);
+            const { account } = req.body;
+            if (!userStartTimes.has(account)) {
+                // If the wallet address is not in the map, set the start time
+                userStartTimes.set(account, Date.now());
+            }
             const riddle = yield riddle_1.default.findById(id);
-            console.log(riddle);
             const isGameDue = (0, calc_duration_1.default)(riddle);
             if (!riddle) {
                 return next(new app_error_1.default('Riddle does not exist', 400));
@@ -180,21 +158,22 @@ function answerRiddle(req, res, next) {
                 return next(new app_error_1.default('Riddle Challenge is over', 400));
             }
             if (riddle.answer === post) {
+                const startTime = (_a = userStartTimes.get(account)) !== null && _a !== void 0 ? _a : Date.now();
+                const endTime = Date.now();
+                const timeSpent = (endTime - startTime) / 1000;
                 const answerObj = {
-                    walletAddress: body.account,
-                    timeCount: timer_1.totalElapsedTime,
+                    walletAddress: account,
+                    timeCount: timeSpent,
                     isCorrect: true,
                     answer: post,
                 };
-                shouldStopTimer = true;
-                yield (0, timer_1.default)(() => shouldStopTimer);
                 // Prepare unsigned transaction
                 const transaction = new web3_js_1.Transaction().add(web3_js_1.SystemProgram.transfer({
-                    fromPubkey: new web3_js_1.PublicKey(body.account),
+                    fromPubkey: new web3_js_1.PublicKey(account),
                     toPubkey: new web3_js_1.PublicKey(process.env.WALLET_ADDRESS),
                     lamports: 0.1 * web3_js_1.LAMPORTS_PER_SOL,
                 }));
-                transaction.feePayer = new web3_js_1.PublicKey(body.account);
+                transaction.feePayer = new web3_js_1.PublicKey(account);
                 transaction.recentBlockhash = (yield connection.getLatestBlockhash()).blockhash;
                 const payload = yield (0, actions_1.createPostResponse)({
                     fields: {
@@ -205,10 +184,7 @@ function answerRiddle(req, res, next) {
                 });
                 riddle.answers.push(answerObj);
                 yield riddle.save();
-                // const balance = await connection.getBalance(
-                //   new PublicKey(process.env.WALLET_ADDRESS as string)
-                // );
-                // console.log(balance, 'WALLET BAL');
+                userStartTimes.delete(account);
                 // Set CORS headers for the response
                 Object.entries(actions_1.ACTIONS_CORS_HEADERS).forEach(([key, value]) => {
                     res.setHeader(key, value);
