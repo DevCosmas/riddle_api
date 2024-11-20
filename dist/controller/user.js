@@ -14,6 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sign_up_user = sign_up_user;
 exports.login = login;
+exports.updateUser = updateUser;
 const app_error_1 = __importDefault(require("../global/app.error"));
 const user_1 = __importDefault(require("../model/user"));
 const jwt_1 = __importDefault(require("../utils/jwt"));
@@ -50,6 +51,7 @@ function sign_up_user(req, res, next) {
         }
     });
 }
+// Login existing user
 function login(req, res, next) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -75,6 +77,33 @@ function login(req, res, next) {
         }
         catch (error) {
             next(new app_error_1.default(error, 500));
+        }
+    });
+}
+// uUpdate existing user
+function updateUser(req, res, next) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const user = yield user_1.default.findById(req === null || req === void 0 ? void 0 : req.user._id);
+            if (!user)
+                return next(new app_error_1.default('This user does not exist', 400));
+            const { email, username } = req.body;
+            // Prepare fields to update
+            const updatedFields = {
+                email: (email === null || email === void 0 ? void 0 : email.trim()) ? email : user.email,
+                username: (username === null || username === void 0 ? void 0 : username.trim()) ? username : user.username,
+            };
+            const updatedUser = yield user_1.default.findOneAndUpdate({ _id: user._id }, updatedFields, { new: true });
+            if (!updatedUser)
+                return next(new app_error_1.default('Failed to update user', 500));
+            updatedUser.password = undefined;
+            res.status(200).json({
+                status: 'success',
+                data: updatedUser,
+            });
+        }
+        catch (error) {
+            next(new app_error_1.default(error.message || 'Server error', 500));
         }
     });
 }

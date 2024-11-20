@@ -51,6 +51,7 @@ export async function sign_up_user(
   }
 }
 
+// Login existing user
 export async function login(
   req: Request,
   res: Response,
@@ -81,5 +82,41 @@ export async function login(
     });
   } catch (error: any) {
     next(new AppError(error, 500));
+  }
+}
+
+// uUpdate existing user
+export async function updateUser(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const user = await userModel.findById((req as any)?.user._id);
+    if (!user) return next(new AppError('This user does not exist', 400));
+
+    const { email, username } = req.body;
+
+    // Prepare fields to update
+    const updatedFields: Partial<UserDocument> = {
+      email: email?.trim() ? email : user.email,
+      username: username?.trim() ? username : user.username,
+    };
+
+    const updatedUser = await userModel.findOneAndUpdate(
+      { _id: user._id },
+      updatedFields,
+      { new: true }
+    );
+
+    if (!updatedUser) return next(new AppError('Failed to update user', 500));
+
+    updatedUser.password = undefined;
+    res.status(200).json({
+      status: 'success',
+      data: updatedUser,
+    });
+  } catch (error: any) {
+    next(new AppError(error.message || 'Server error', 500));
   }
 }

@@ -139,7 +139,7 @@ function answerRiddle(req, res, next) {
         var _a;
         try {
             // await measureTimeUntilCondition(() => shouldStopTimer);
-            const connection = new web3_js_1.Connection((0, web3_js_1.clusterApiUrl)('devnet'), 'confirmed');
+            const connection = new web3_js_1.Connection((0, web3_js_1.clusterApiUrl)('mainnet-beta'), 'confirmed');
             const { id, post } = req.query;
             const { account } = req.body;
             if (!userStartTimes.has(account)) {
