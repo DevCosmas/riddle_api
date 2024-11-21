@@ -20,6 +20,7 @@ const server = http_1.default.createServer(app);
 // Connect to MongoDB
 (0, db_config_1.default)();
 // Middleware setup
+app.set('trust proxy', true);
 app.use(express_1.default.json()); // Parse JSON requests
 app.use(body_parser_1.default.urlencoded({ limit: '10mb', extended: true }));
 app.use((0, morgan_1.default)('combined'));

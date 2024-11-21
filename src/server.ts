@@ -18,6 +18,7 @@ const server = http.createServer(app);
 mongoDbConnection();
 
 // Middleware setup
+app.set('trust proxy', true);
 app.use(express.json()); // Parse JSON requests
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 app.use(morgan('combined'));

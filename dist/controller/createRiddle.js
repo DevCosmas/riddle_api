@@ -96,7 +96,6 @@ function createRiddle(req, res, next) {
                 const { question, answer, wager, options, duration, description } = req.body;
                 const parsedDurationJSON = JSON.parse(duration);
                 parsedDurationJSON.value = parseInt(parsedDurationJSON.value);
-                console.log(req.file);
                 console.log(parsedDurationJSON, typeof parsedDurationJSON);
                 const inputData = {
                     question,
@@ -108,7 +107,6 @@ function createRiddle(req, res, next) {
                     duration: parsedDurationJSON,
                     user: req.user._id,
                 };
-                console.log(inputData);
                 // Check if each required field is provided
                 if (!question || !answer || !wager) {
                     return next(new app_error_1.default('Question, Answer, and Wager cannot be blank', 400));
@@ -171,7 +169,7 @@ function answerRiddle(req, res, next) {
                 const transaction = new web3_js_1.Transaction().add(web3_js_1.SystemProgram.transfer({
                     fromPubkey: new web3_js_1.PublicKey(account),
                     toPubkey: new web3_js_1.PublicKey(process.env.WALLET_ADDRESS),
-                    lamports: 0.1 * web3_js_1.LAMPORTS_PER_SOL,
+                    lamports: 0.005 * web3_js_1.LAMPORTS_PER_SOL,
                 }));
                 transaction.feePayer = new web3_js_1.PublicKey(account);
                 transaction.recentBlockhash = (yield connection.getLatestBlockhash()).blockhash;
@@ -185,6 +183,7 @@ function answerRiddle(req, res, next) {
                 riddle.answers.push(answerObj);
                 yield riddle.save();
                 userStartTimes.delete(account);
+                console.log(riddle);
                 // Set CORS headers for the response
                 Object.entries(actions_1.ACTIONS_CORS_HEADERS).forEach(([key, value]) => {
                     res.setHeader(key, value);
@@ -196,7 +195,7 @@ function answerRiddle(req, res, next) {
             }
         }
         catch (error) {
-            next(new app_error_1.default(error.message || 'Server error', 500));
+            next(new app_error_1.default(error || 'Server error', 500));
         }
     });
 }

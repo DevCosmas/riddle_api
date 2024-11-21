@@ -112,8 +112,6 @@ export async function createRiddle(
       const parsedDurationJSON = JSON.parse(duration);
       parsedDurationJSON.value = parseInt(parsedDurationJSON.value);
 
-      console.log(req.file);
-
       console.log(parsedDurationJSON, typeof parsedDurationJSON);
       const inputData = {
         question,
@@ -125,7 +123,6 @@ export async function createRiddle(
         duration: parsedDurationJSON,
         user: (req as any).user._id,
       };
-      console.log(inputData);
 
       // Check if each required field is provided
       if (!question || !answer || !wager) {
@@ -207,7 +204,7 @@ export async function answerRiddle(
         SystemProgram.transfer({
           fromPubkey: new PublicKey(account),
           toPubkey: new PublicKey(process.env.WALLET_ADDRESS as string),
-          lamports: 0.1 * LAMPORTS_PER_SOL,
+          lamports: 0.005 * LAMPORTS_PER_SOL,
         })
       );
 
@@ -227,7 +224,7 @@ export async function answerRiddle(
       await riddle.save();
 
       userStartTimes.delete(account);
-
+      console.log(riddle);
       // Set CORS headers for the response
       Object.entries(ACTIONS_CORS_HEADERS).forEach(([key, value]) => {
         res.setHeader(key, value);
@@ -237,7 +234,7 @@ export async function answerRiddle(
       res.status(400).json({ message: 'Your answer is wrong, try again' });
     }
   } catch (error: any) {
-    next(new AppError(error.message || 'Server error', 500));
+    next(new AppError(error || 'Server error', 500));
   }
 }
 
